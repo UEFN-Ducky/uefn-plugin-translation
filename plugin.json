@@ -1,0 +1,86 @@
+{
+  "id": "translation",
+  "kind": "plugin",
+  "version": "1.0.48",
+  "label": "Translation",
+  "description": "Live-translate the UEFN Ducky UI into languages you add, using a chosen AI model. Strings are cached so each phrase is translated once.",
+  "min_app_version": "1.0.475",
+  "default_enabled": false,
+  "secret_keys": [],
+  "contributes": {
+    "settings.tabs": [
+      {
+        "id": "Languages",
+        "label": "Languages",
+        "icon": "assets/icon.svg",
+        "ui": "builtin:languages-settings"
+      }
+    ],
+    "header.buttons": [
+      {
+        "id": "translation",
+        "title": "UI language",
+        "icon": "assets/icon.svg",
+        "action": "settings:Languages",
+        "order": 30
+      }
+    ],
+    "shell.boot": [
+      {
+        "entry": "ui/boot.js"
+      }
+    ],
+    "walkthrough": {
+      "id": "translation",
+      "title": "Set up Translation",
+      "auto_start": "first_enable",
+      "settings_tab": "Languages",
+      "steps": [
+        {
+          "target": "settings.tab.languages",
+          "title": "Languages tab",
+          "body": "Translation settings live here. Press the Languages tab to open them.",
+          "advance": "require_click",
+          "mode": "rect"
+        },
+        {
+          "target": "settings.languages.model",
+          "title": "Pick a model",
+          "body": "Choose an AI model for UI translation. Empty uses your Default Model from Settings → LLMs.",
+          "advance": "next",
+          "mode": "rect"
+        },
+        {
+          "target": "settings.languages.add",
+          "title": "Add a language",
+          "body": "Type a language name (Spanish, Français, ja, …) and press Add. Then click it in the list to apply.",
+          "advance": "next",
+          "mode": "rect"
+        },
+        {
+          "target": "settings.languages.list",
+          "title": "Your languages",
+          "body": "Click a language to apply it to the UI. English (off) turns translation off. Caches keep each phrase translated once.",
+          "advance": "next",
+          "mode": "rect"
+        }
+      ]
+    },
+    "agent.tools": {
+      "category": "translation",
+      "tools": [
+        "translate_ui_batch",
+        "translate_ui_cache_get",
+        "translate_ui_cache_clear"
+      ],
+      "intent_pattern": "\\b(translate|translation|localize|localisation|localization|ui language)\\b",
+      "plan_tools": [
+        "translate_ui_cache_get"
+      ]
+    }
+  },
+  "backend": {
+    "entry": "backend",
+    "register": "register"
+  }
+}
