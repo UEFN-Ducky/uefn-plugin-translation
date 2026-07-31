@@ -9,6 +9,6 @@ from __future__ import annotations
 
 def register(api) -> None:
     """Import Translation MCP tools onto the shared FastMCP instance (idempotent)."""
-    import backend.tools.translation_tools  # noqa: F401
+    import backend.tools.integrations.translation_tools  # noqa: F401
 
     api.log("Translation MCP tools registered")
