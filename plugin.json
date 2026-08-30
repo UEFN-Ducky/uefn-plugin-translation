@@ -1,7 +1,7 @@
 {
   "id": "translation",
   "kind": "plugin",
-  "version": "1.0.49",
+  "version": "1.0.51",
   "label": "Translation",
   "description": "Live-translate the UEFN Ducky UI into languages you add, using a chosen AI model. Strings are cached so each phrase is translated once.",
   "min_app_version": "1.0.475",
@@ -46,14 +46,14 @@
         {
           "target": "settings.languages.model",
           "title": "Pick a model",
-          "body": "Choose an AI model for UI translation. Empty uses your Default Model from Settings \u2192 LLMs.",
+          "body": "Choose an AI model for UI translation. Empty uses your Default Model from Settings → LLMs.",
           "advance": "next",
           "mode": "rect"
         },
         {
           "target": "settings.languages.add",
           "title": "Add a language",
-          "body": "Type a language name (Spanish, Fran\u00e7ais, ja, \u2026) and press Add. Then click it in the list to apply.",
+          "body": "Type a language name (Spanish, Français, ja, …) and press Add. Then click it in the list to apply.",
           "advance": "next",
           "mode": "rect"
         },
