@@ -42,6 +42,9 @@ assert "SWAP FIRST" in src or "swap DOM immediately" in src, (
 assert "void flushCatalog(myRun)" in src, (
     "seed flush must run in background after swap (not await before applyCatalogToDom)"
 )
+assert "lastStartToken" in src and "translateStart" in src, "Start token gate missing — language prefs must not auto-run LLM"
+assert "data-translation-start" in src, "embedded Start button missing"
+assert "hardStop" in src and "isHardModelError" in src, "coding-agent hard-fail missing"
 assert "uefn-translate-scope" in src, "chat Translate must walk message list via uefn-translate-scope"
 assert "MAX_CHAT_DISCOVER_LEN" in src, "chat messages need a longer discover cap than chrome"
 assert "thinking-block-body" in src, "skip thinking dumps when translating chat"

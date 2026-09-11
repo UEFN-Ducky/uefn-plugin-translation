@@ -172,6 +172,8 @@
   var progressEmbedded = null; // Languages tab host (always available while mounted)
   var hideTimer = null;
   var hostWatcher = null;
+  /** null until first prefs sync — leftover translateStart must not auto-run. */
+  var lastStartToken = null;
   /** src -> { src, cat, status: queued|active|done|error, value } */
   var jobItems = {};
   var progressExpanded = false;
@@ -335,10 +337,22 @@
       ".translation-progress--embedded.is-idle .translation-progress-track{display:none;}" +
       ".translation-progress--embedded.is-idle .translation-progress-body{border-top:0;}" +
       ".translation-progress-idle{color:#9aa0a6;padding:4px 2px;}" +
+      ".translation-progress-start{margin-top:10px;padding:8px 14px;border:0;border-radius:8px;" +
+      "background:var(--accent,#2563eb);color:#fff;font:13px/1.2 system-ui,sans-serif;cursor:pointer;}" +
+      ".translation-progress-start:hover{filter:brightness(1.08);}" +
       ".translation-progress-host:empty{display:none;}" +
       "@keyframes uefn-tr-slide{0%{transform:translateX(-40%)}100%{transform:translateX(340%)}}" +
       "@keyframes uefn-tr-skel{0%{background-position:100% 0}100%{background-position:-100% 0}}";
     document.head.appendChild(style);
+  }
+
+  function idleBodyHtml() {
+    return (
+      '<div class="translation-progress-idle">' +
+      "No translation in progress. Add a language, pick an API model (Anthropic / OpenAI / Gemini / Ollama — not Claude Code or Cursor), then press Start." +
+      "</div>" +
+      '<button type="button" class="translation-progress-start" data-translation-start>Start</button>'
+    );
   }
 
   function progressMarkup(floating) {
@@ -377,8 +391,7 @@
       var labelEl = progressEmbedded.querySelector(".translation-progress-chip-label");
       if (labelEl) labelEl.textContent = "Idle";
       if (body) {
-        body.innerHTML =
-          '<div class="translation-progress-idle">No translation in progress. Pick a language above — progress stays here while it runs in the background.</div>';
+        body.innerHTML = idleBodyHtml();
       }
     }
   }
@@ -402,8 +415,7 @@
           var labelEl = progressEmbedded.querySelector(".translation-progress-chip-label");
           if (labelEl) labelEl.textContent = "Idle";
           if (body) {
-            body.innerHTML =
-              '<div class="translation-progress-idle">No translation in progress. Pick a language above — progress stays here while it runs in the background.</div>';
+            body.innerHTML = idleBodyHtml();
           }
         }
       }
@@ -546,8 +558,7 @@
     var body = progressEmbedded.querySelector(".translation-progress-body");
     if (labelEl) labelEl.textContent = "Idle";
     if (body) {
-      body.innerHTML =
-        '<div class="translation-progress-idle">No translation in progress. Pick a language above — progress stays here while it runs in the background.</div>';
+      body.innerHTML = idleBodyHtml();
     }
   }
 
@@ -1106,16 +1117,89 @@
   }
 
   function isBadBatchModel(model) {
-    var m = String(model || "").trim().toLowerCase();
-    if (!m) return false;
+    var raw = String(model || "").trim().toLowerCase();
+    // Empty = Default Model, which is often Claude Code / Cursor — refuse before a loop.
+    if (!raw) return true;
+    var compact = raw.replace(/[\s_-]+/g, "");
     return (
-      m.indexOf("cursor:") === 0 ||
-      m.indexOf("claude_code:") === 0 ||
-      m.indexOf("codex:") === 0 ||
-      m === "cursor" ||
-      m === "claude_code" ||
-      m === "codex"
+      compact.indexOf("cursor") === 0 ||
+      compact.indexOf("claudecode") === 0 ||
+      compact.indexOf("codex") === 0
     );
+  }
+
+  function badModelMessage(model) {
+    var shown = String(model || "").trim();
+    return shown
+      ? "Model " +
+          shown +
+          " can't batch-translate UI. Pick Anthropic / OpenAI / Gemini / Ollama in Languages → Model, then press Start."
+      : "Pick an API model in Languages → Model (Anthropic / OpenAI / Gemini / Ollama). Default Model / Claude Code / Cursor / Codex cannot batch-translate UI.";
+  }
+
+  function isHardModelError(err) {
+    var s = String(err || "").toLowerCase();
+    return (
+      s.indexOf("can't batch-translate") >= 0 ||
+      s.indexOf("cannot batch-translate") >= 0 ||
+      s.indexOf("needs an api model") >= 0 ||
+      s.indexOf("hangs on batch") >= 0
+    );
+  }
+
+  function hardStop(myRun, lang, message) {
+    if (myRun != null && myRun !== runId) return;
+    stopped = true;
+    seedReady = false;
+    chromeReady = false;
+    disconnectObserver();
+    pending.clear();
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+    publishProgress({
+      state: "error",
+      lang: lang || activeLang,
+      message: message,
+      force: true,
+    });
+  }
+
+  function armStartFromUi() {
+    var prefs = readPrefs();
+    var lang = typeof prefs.language === "string" ? prefs.language.trim() : "en";
+    var model = typeof prefs.model === "string" ? prefs.model.trim() : "";
+    if (isEnglish(lang)) {
+      publishProgress({
+        state: "error",
+        message: "Pick a language first, then press Start.",
+        force: true,
+      });
+      return;
+    }
+    if (isBadBatchModel(model)) {
+      publishProgress({
+        state: "error",
+        lang: lang,
+        message: badModelMessage(model),
+        force: true,
+      });
+      return;
+    }
+    var h = host();
+    if (h && h.prefs && typeof h.prefs.set === "function") {
+      h.prefs.set({ translateStart: String(Date.now()) });
+    }
+  }
+
+  function onDocClick(ev) {
+    var t = ev && ev.target;
+    if (!t || !t.closest) return;
+    if (t.closest("[data-translation-start]")) {
+      ev.preventDefault();
+      armStartFromUi();
+    }
   }
 
   function isTimeoutError(err) {
@@ -1309,6 +1393,10 @@
       if (result.ok) {
         failStreak = 0;
       } else {
+        if (isHardModelError(result.error) || isBadBatchModel(writeModel)) {
+          hardStop(myRun, writeLang, result.error || badModelMessage(writeModel));
+          return false;
+        }
         failStreak++;
         if (failStreak >= 3) {
           // Lock remaining pending so we don't spin.
@@ -1555,14 +1643,7 @@
     if (myRun !== runId || stopped || activeLang !== next) return;
 
     if (isBadBatchModel(activeModel)) {
-      publishProgress({
-        state: "error",
-        lang: next,
-        message:
-          "Model " +
-          activeModel +
-          " can't batch-translate UI. Pick Anthropic / OpenAI / Gemini / Ollama in Languages → Model.",
-      });
+      hardStop(myRun, next, badModelMessage(activeModel));
       return;
     }
 
@@ -1637,7 +1718,23 @@
     var prefs = readPrefs();
     var lang = typeof prefs.language === "string" ? prefs.language.trim() : "en";
     var model = typeof prefs.model === "string" ? prefs.model.trim() : "";
-    requestLanguage(lang, model);
+    desiredLang = lang;
+    desiredModel = model;
+    var token = String(prefs.translateStart || "");
+    // First hydrate: remember leftover Start token, never treat it as a new press.
+    if (lastStartToken === null) {
+      lastStartToken = token;
+      if (isEnglish(lang)) requestLanguage("en", model);
+      return;
+    }
+    if (isEnglish(lang)) {
+      requestLanguage("en", model);
+      return;
+    }
+    if (token && token !== lastStartToken) {
+      lastStartToken = token;
+      requestLanguage(lang, model);
+    }
   }
 
   function onPrefs(ev) {
@@ -1667,6 +1764,7 @@
 
   window.addEventListener("uefn-plugin-prefs", onPrefs);
   window.addEventListener("uefn-translate-scope", onTranslateScope);
+  document.addEventListener("click", onDocClick);
   window.__duckyPluginBootCleanups = window.__duckyPluginBootCleanups || {};
   // Disable / uninstall (keep-data or erase): always snap UI + pref back to English.
   // Language list + caches can stay; active language must not stick on a dead plugin.
@@ -1674,6 +1772,7 @@
     window.removeEventListener("uefn-plugin-prefs", onPrefs);
     window.removeEventListener("uefn-plugin-prefs-hydrated", onHydrated);
     window.removeEventListener("uefn-translate-scope", onTranslateScope);
+    document.removeEventListener("click", onDocClick);
     var h = host();
     if (h && h.prefs && typeof h.prefs.set === "function") {
       try {

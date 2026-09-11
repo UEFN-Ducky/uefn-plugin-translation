@@ -1,7 +1,7 @@
 {
   "id": "translation",
   "kind": "plugin",
-  "version": "1.0.51",
+  "version": "1.0.52",
   "label": "Translation",
   "description": "Live-translate the UEFN Ducky UI into languages you add, using a chosen AI model. Strings are cached so each phrase is translated once.",
   "min_app_version": "1.0.475",
@@ -46,21 +46,28 @@
         {
           "target": "settings.languages.model",
           "title": "Pick a model",
-          "body": "Choose an AI model for UI translation. Empty uses your Default Model from Settings → LLMs.",
+          "body": "Click a model under Anthropic, OpenAI, Gemini, or Ollama. Empty / Default / Claude Code / Cursor cannot batch-translate.",
           "advance": "next",
           "mode": "rect"
         },
         {
           "target": "settings.languages.add",
           "title": "Add a language",
-          "body": "Type a language name (Spanish, Français, ja, …) and press Add. Then click it in the list to apply.",
+          "body": "Type a language name (Spanish, Français, ja, …) and press Add. Adding only grows the list — it does not start translation.",
           "advance": "next",
           "mode": "rect"
         },
         {
           "target": "settings.languages.list",
           "title": "Your languages",
-          "body": "Click a language to apply it to the UI. English (off) turns translation off. Caches keep each phrase translated once.",
+          "body": "Click a language to select it. English (off) stops translation immediately.",
+          "advance": "next",
+          "mode": "rect"
+        },
+        {
+          "target": "settings.languages.start",
+          "title": "Press Start",
+          "body": "Translation never auto-starts from Add. After a language and an API model are picked, press Start.",
           "advance": "next",
           "mode": "rect"
         }
