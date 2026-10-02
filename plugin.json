@@ -1,7 +1,7 @@
 {
   "id": "translation",
   "kind": "plugin",
-  "version": "1.0.52",
+  "version": "1.0.53",
   "label": "Translation",
   "description": "Live-translate the UEFN Ducky UI into languages you add, using a chosen AI model. Strings are cached so each phrase is translated once.",
   "min_app_version": "1.0.475",
